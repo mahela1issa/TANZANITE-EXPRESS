@@ -582,150 +582,7 @@ export const CustomerDashboard: React.FC = () => {
   const customerRecommended = (recommendations?.recommendedForYou || []).slice(0, 4);
   const customerRecentlyViewed = (recommendations?.recentlyViewed || []).slice(0, 4);
 
-  return (
-    <div className="max-w-[1440px] mx-auto px-3.5 sm:px-8 py-6 sm:py-8 grid lg:grid-cols-12 gap-6 lg:gap-8">
-      <aside className="lg:col-span-3 min-w-0 bg-white border border-[#E2E5F0] p-4 h-fit">
-        <div className="pb-4 mb-3 border-b border-[#E2E5F0]">
-          <p className="text-xs text-[#5B3CC4] uppercase tracking-wider font-semibold">
-            {t('customerWorkspace')}
-          </p>
-          <p className="text-sm font-semibold text-[#111322] truncate mt-0.5">
-            {userAccount?.displayName}
-          </p>
-        </div>
-        <nav className="flex max-w-full overflow-x-auto gap-1.5 pb-1 lg:pb-0 lg:block lg:space-y-1">
-          {navItems.map((n) => (
-            <button
-              key={n.id}
-              type="button"
-              onClick={() => setTab(n.id)}
-              className={`shrink-0 lg:w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[44px] text-xs font-medium text-left transition-colors cursor-pointer ${
-                tab === n.id
-                  ? 'bg-[#2B3A9F] text-white'
-                  : 'text-neutral-700 hover:bg-[#EEF2FF]'
-              }`}
-            >
-              {n.icon}
-              <span className="whitespace-nowrap">{n.label}</span>
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      <section className="lg:col-span-9 min-w-0 space-y-6">
-        {needsEmailVerification && (
-          <div className="bg-amber-50 border border-amber-300 px-4 sm:px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950">
-            <div className="flex items-center gap-2 min-w-0">
-              <MailCheck className="w-4 h-4 shrink-0 text-amber-700" />
-              <span className="min-w-0 break-words">
-                Please verify your email address (<strong>{firebaseUser.email}</strong>) to secure your TANZANITE EXPRESS account.
-              </span>
-            </div>
-            <button
-              type="button"
-              disabled={resendingVerif}
-              onClick={async () => {
-                setResendingVerif(true);
-                try {
-                  await resendVerificationEmail();
-                } finally {
-                  setResendingVerif(false);
-                }
-              }}
-              className="border border-amber-700 bg-white px-3 py-2 min-h-[40px] font-semibold text-amber-950 hover:bg-amber-100 cursor-pointer disabled:opacity-50"
-            >
-              {resendingVerif ? 'Sending...' : 'Resend Verification Email'}
-            </button>
-          </div>
-        )}
-
-        <div className="bg-white border border-[#E2E5F0] px-4 sm:px-6 py-3.5 sm:py-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs text-neutral-500">
-            {t('account')} / <span className="text-[#111322] font-medium capitalize">{tab}</span>
-          </div>
-          <button
-            type="button"
-            onClick={loadData}
-            className="text-xs font-medium text-[#2B3A9F] underline cursor-pointer min-h-[36px]"
-          >
-            {t('refresh')}
-          </button>
-        </div>
-
-        {tab === 'orders' && (() => {
-          const matchesOrderFilter = (order: Order): boolean => {
-            if (orderFilter === 'ALL') return true;
-            if (orderFilter === 'PENDING_PAYMENT') {
-              return order.paymentStatus === 'PENDING' && order.overallStatus !== 'Cancelled';
-            }
-            if (orderFilter === 'AWAITING_VERIFICATION') {
-              return order.paymentStatus === 'AWAITING_VERIFICATION';
-            }
-            if (orderFilter === 'CONFIRMED') {
-              return order.paymentStatus === 'CONFIRMED' && order.overallStatus === 'Payment Confirmed';
-            }
-            if (orderFilter === 'PROCESSING') {
-              return order.overallStatus === 'Processing' || order.overallStatus === 'Confirmed';
-            }
-            if (orderFilter === 'SHIPPED') {
-              return order.overallStatus === 'Shipped' || order.overallStatus === 'In Transit';
-            }
-            if (orderFilter === 'COMPLETED') {
-              return order.overallStatus === 'Completed' || order.overallStatus === 'Delivered';
-            }
-            if (orderFilter === 'CANCELLED') {
-              return order.overallStatus === 'Cancelled';
-            }
-            if (orderFilter === 'REFUNDED') {
-              return (
-                order.paymentStatus === 'REFUNDED' ||
-                order.paymentStatus === 'PARTIALLY_REFUNDED' ||
-                order.overallStatus === 'Refunded'
-              );
-            }
-            return true;
-          };
-
-          const q = orderSearch.trim().toLowerCase();
-          const filteredOrders = orders.filter((order) => {
-            if (!matchesOrderFilter(order)) return false;
-            if (!q) return true;
-            const orderSubs = suborders.filter((s) => s.orderId === order.id);
-            const subHit = orderSubs.some(
-              (s) =>
-                s.supplierName.toLowerCase().includes(q) ||
-                (s.trackingNumber || '').toLowerCase().includes(q) ||
-                s.items.some((it) => it.title.toLowerCase().includes(q) || it.sku.toLowerCase().includes(q))
-            );
-            return (
-              order.id.toLowerCase().includes(q) ||
-              (order.submittedTransactionId || '').toLowerCase().includes(q) ||
-              order.shippingAddress.city.toLowerCase().includes(q) ||
-              subHit
-            );
-          });
-
-          const ORDER_PAGE_SIZE = 6;
-          const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDER_PAGE_SIZE));
-          const safeOrderPage = Math.min(orderPage, totalOrderPages);
-          const pagedOrders = filteredOrders.slice(
-            (safeOrderPage - 1) * ORDER_PAGE_SIZE,
-            safeOrderPage * ORDER_PAGE_SIZE
-          );
-
-          const filterTabs: { id: CustomerOrderFilter; label: string }[] = [
-            { id: 'ALL', label: t('orderHistoryFiltersAll') },
-            { id: 'PENDING_PAYMENT', label: 'Pending Payment' },
-            { id: 'AWAITING_VERIFICATION', label: 'Awaiting Verification' },
-            { id: 'CONFIRMED', label: 'Confirmed' },
-            { id: 'PROCESSING', label: 'Processing' },
-            { id: 'SHIPPED', label: 'Shipped' },
-            { id: 'COMPLETED', label: 'Completed' },
-            { id: 'CANCELLED', label: 'Cancelled' },
-            { id: 'REFUNDED', label: 'Refunded' },
-          ];
-
-          return (
+ return (
             <div className="space-y-4">
               {orders.length > 0 && (
                 <div className="bg-white border border-[#E2E5F0] p-4 space-y-3">
@@ -1142,127 +999,6 @@ export const CustomerDashboard: React.FC = () => {
             </div>
           );
         })()}
-
-            {(customerRecommended.length > 0 || customerRecentlyViewed.length > 0) && (
-              <div className="bg-white border border-[#E2E5F0] p-5 space-y-5">
-                {customerRecommended.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-editorial text-xl font-semibold text-[#111322] flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-[#5B3CC4]" />
-                        {t('recommendedForYou')}
-                      </h4>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {customerRecommended.map((prod) => (
-                        <button
-                          key={prod.id}
-                          type="button"
-                          onClick={() => {
-                            void trackActivity({
-                              type: 'recommendation_click',
-                              productId: prod.id,
-                              supplierId: prod.supplierId,
-                              source: 'customer_dashboard_recommended',
-                            });
-                            setSelectedProduct(prod);
-                          }}
-                          className="text-left border border-[#E2E5F0] bg-[#F8F9FC] p-2.5 hover:border-[#2B3A9F] cursor-pointer space-y-1.5"
-                        >
-                          <div className="aspect-[4/3] bg-white overflow-hidden">
-                            <SafeImage src={prod.images[0]} alt={prod.title} className="w-full h-full object-cover" />
-                          </div>
-                          <p className="text-xs font-medium text-[#111322] truncate">{prod.title}</p>
-                          <p className="text-[11px] font-semibold text-[#2B3A9F] tabular-nums">
-                            {formatMoney(prod.sellingPriceUsd)}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {customerRecentlyViewed.length > 0 && (
-                  <div className="space-y-3 pt-2 border-t border-[#E2E5F0]">
-                    <h4 className="font-editorial text-lg font-semibold text-[#111322]">
-                      {t('recentlyViewed')}
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {customerRecentlyViewed.map((prod) => (
-                        <button
-                          key={prod.id}
-                          type="button"
-                          onClick={() => {
-                            void trackActivity({
-                              type: 'recommendation_click',
-                              productId: prod.id,
-                              supplierId: prod.supplierId,
-                              source: 'customer_dashboard_recent',
-                            });
-                            setSelectedProduct(prod);
-                          }}
-                          className="text-left border border-[#E2E5F0] bg-[#F8F9FC] p-2.5 hover:border-[#2B3A9F] cursor-pointer space-y-1.5"
-                        >
-                          <div className="aspect-[4/3] bg-white overflow-hidden">
-                            <SafeImage src={prod.images[0]} alt={prod.title} className="w-full h-full object-cover" />
-                          </div>
-                          <p className="text-xs font-medium text-[#111322] truncate">{prod.title}</p>
-                          <p className="text-[11px] font-semibold text-[#2B3A9F] tabular-nums">
-                            {formatMoney(prod.sellingPriceUsd)}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {returnTarget && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <form
-              onSubmit={submitRefund}
-              className="bg-white border border-[#E5E2DC] p-6 w-full max-w-md space-y-4"
-            >
-              <h3 className="font-editorial text-2xl font-semibold">Request Return or Refund</h3>
-              <p className="text-xs text-neutral-500">
-                Suborder: <span className="font-mono-tabular">{returnTarget.suborderId}</span>
-              </p>
-              <textarea
-                required
-                rows={3}
-                value={returnReason}
-                onChange={(e) => setReturnReason(e.target.value)}
-                placeholder="Describe the sizing issue, defect, or delivery problem..."
-                className="w-full border border-[#E5E2DC] p-3 text-xs"
-              />
-              <input
-                type="url"
-                value={returnEvidenceUrl}
-                onChange={(e) => setReturnEvidenceUrl(e.target.value)}
-                placeholder="Evidence photo URL (optional)"
-                className="w-full border border-[#E5E2DC] px-3 py-2 text-xs"
-              />
-              <div className="flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setReturnTarget(null)}
-                  className="border border-[#E5E2DC] px-4 py-2 text-xs cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-[#111111] text-white px-5 py-2 text-xs font-medium cursor-pointer"
-                >
-                  Submit Claim
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         {tab === 'returns' && (
           <div className="bg-white border border-[#E5E2DC] p-6 space-y-4">
@@ -1870,6 +1606,81 @@ export const CustomerDashboard: React.FC = () => {
           </div>
         )}
       </section>
+
+      {(customerRecommended.length > 0 || customerRecentlyViewed.length > 0) && (
+        <div className="lg:col-span-12 bg-white border border-[#E2E5F0] p-5 space-y-5">
+          {customerRecommended.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-editorial text-xl font-semibold text-[#111322] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#5B3CC4]" />
+                  {t('recommendedForYou')}
+                </h4>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {customerRecommended.map((prod) => (
+                  <button
+                    key={prod.id}
+                    type="button"
+                    onClick={() => {
+                      void trackActivity({
+                        type: 'recommendation_click',
+                        productId: prod.id,
+                        supplierId: prod.supplierId,
+                        source: 'customer_dashboard_recommended',
+                      });
+                      setSelectedProduct(prod);
+                    }}
+                    className="text-left border border-[#E2E5F0] bg-[#F8F9FC] p-2.5 hover:border-[#2B3A9F] cursor-pointer space-y-1.5"
+                  >
+                    <div className="aspect-[4/3] bg-white overflow-hidden">
+                      <SafeImage src={prod.images[0]} alt={prod.title} className="w-full h-full object-cover" />
+                    </div>
+                    <p className="text-xs font-medium text-[#111322] truncate">{prod.title}</p>
+                    <p className="text-[11px] font-semibold text-[#2B3A9F] tabular-nums">
+                      {formatMoney(prod.sellingPriceUsd)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {customerRecentlyViewed.length > 0 && (
+            <div className="space-y-3 pt-2 border-t border-[#E2E5F0]">
+              <h4 className="font-editorial text-lg font-semibold text-[#111322]">
+                {t('recentlyViewed')}
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {customerRecentlyViewed.map((prod) => (
+                  <button
+                    key={prod.id}
+                    type="button"
+                    onClick={() => {
+                      void trackActivity({
+                        type: 'recommendation_click',
+                        productId: prod.id,
+                        supplierId: prod.supplierId,
+                        source: 'customer_dashboard_recent',
+                      });
+                      setSelectedProduct(prod);
+                    }}
+                    className="text-left border border-[#E2E5F0] bg-[#F8F9FC] p-2.5 hover:border-[#2B3A9F] cursor-pointer space-y-1.5"
+                  >
+                    <div className="aspect-[4/3] bg-white overflow-hidden">
+                      <SafeImage src={prod.images[0]} alt={prod.title} className="w-full h-full object-cover" />
+                    </div>
+                    <p className="text-xs font-medium text-[#111322] truncate">{prod.title}</p>
+                    <p className="text-[11px] font-semibold text-[#2B3A9F] tabular-nums">
+                      {formatMoney(prod.sellingPriceUsd)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {selectedOrderDetail && (() => {
         const orderSubs = suborders.filter((s) => s.orderId === selectedOrderDetail.id);
